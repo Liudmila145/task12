@@ -11,50 +11,50 @@ provider "aws" {
   region = "us-east-1"
 }
 
-resource "aws_vpc" "wp-vpc" {
-  cidr_block           = "10.10.0.0/16"
+resource "aws_vpc" "wordpress-vpc" {
+  cidr_block           = "10.100.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
   tags                 = {
-    Name = "wp-vpc"
+    Name = "wordpress-vpc"
   }
 }
 
-resource "aws_internet_gateway" "wp-gw" {
-  vpc_id = aws_vpc.wp-vpc.id
+resource "aws_internet_gateway" "wordpress-gw" {
+  vpc_id = aws_vpc.wordpress-vpc.id
 }
 
-resource "aws_route_table" "wp-route-table" {
-  vpc_id = aws_vpc.wp-vpc.id
+resource "aws_route_table" "wordpress-route-table" {
+  vpc_id = aws_vpc.wordpress-vpc.id
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.wp-gw.id
+    gateway_id = aws_internet_gateway.wordpress-gw.id
   }
   tags = {
     Name = "route-table-public"
   }
 }
 
-resource "aws_subnet" "wp-subnet" {
-  vpc_id                  = aws_vpc.wp-vpc.id
-  cidr_block              = "10.10.1.0/24"
+resource "aws_subnet" "wordpress-subnet" {
+  vpc_id                  = aws_vpc.wordpress-vpc.id
+  cidr_block              = "10.100.1.0/24"
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "wp-subnet-10-10-1-0"
+    Name = "wordpress-subnet-10-10-1-0"
     Tier = "Public"
   }
 }
 
 resource "aws_route_table_association" "subnet-association" {
-  subnet_id      = aws_subnet.wp-subnet.id
-  route_table_id = aws_route_table.wp-route-table.id
+  subnet_id      = aws_subnet.wordpress-subnet.id
+  route_table_id = aws_route_table.wordpress-route-table.id
 }
 
-resource "aws_security_group" "wp-security-group" {
-  name        = "wp-security-group"
-  description = "wp-security-group"
-  vpc_id      = aws_vpc.wp-vpc.id
+resource "aws_security_group" "wordpress-security-group" {
+  name        = "wordpress-security-group"
+  description = "wordpress-security-group"
+  vpc_id      = aws_vpc.wordpress-vpc.id
 
   ingress {
     description = "http"
@@ -92,10 +92,10 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"]
 }
 
-resource "aws_instance" "wp-server" {
+resource "aws_instance" "wordpress-server" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.micro"
-  subnet_id     = aws_subnet.wp-subnet.id
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.wordpress-subnet.id
 
   associate_public_ip_address = true
 
@@ -110,16 +110,16 @@ resource "aws_instance" "wp-server" {
 
     sudo usermod -aG docker ubuntu
 
-    docker network create my-wordpress
-    docker run -d mysql:8 --name my-mysql --restart=unless-stopped --network=my-wordpress -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=wp -e MYSQL_USER=wp -e MYSQL_PASSWORD=pass
-    docker run -d sadgecko/wp:last --name my-app  --restart=unless-stopped --network=my-wordpress -p 80:80
+    docker network create test-network
+    docker run -d mysql:8 --name wordpress-mysql --restart=unless-stopped --network=test-network -e MYSQL_ROOT_PASSWORD=wordpress -e MYSQL_DATABASE=wordpress -e MYSQL_USER=wordpress -e MYSQL_PASSWORD=wordpress
+    docker run -d application --name application --restart=unless-stopped --network=test-network -p 80:80
   EOF
 
   vpc_security_group_ids = [
-    aws_security_group.wp-security-group.id
+    aws_security_group.wordpress-security-group.id
   ]
 
   tags = {
-    Name = "wp-server"
+    Name = "wordpress-server"
   }
 }
